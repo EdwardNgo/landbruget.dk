@@ -10,7 +10,6 @@ import asyncio
 import aiohttp
 from bs4 import BeautifulSoup
 import json
-import nest_asyncio
 import traceback
 import logging
 
@@ -22,12 +21,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-nest_asyncio.apply()
 
 async def fetch(session, url):
     async with session.get(url) as response:
         response.raise_for_status()
         return await response.text()
+    
 class DMACompanyDetailScraper:
     
     def __init__(self, data):
@@ -112,36 +111,5 @@ class DMACompanyDetailScraper:
             tasks = [bounded(url) for url in urls]
             company_details_data = await asyncio.gather(*tasks)
         return company_details_data
-
-# Initialize GCS client
-storage_client = storage.Client()
-
-# Bucket and prefix env vars
-GCS_BUCKET = os.environ.get("GCS_BUCKET_NAME", "landbrugsdata-raw-data")
-OUTPUT_PREFIX = os.environ.get("OUTPUT_PREFIX", "dma_scraper/details")
-
-def dma_scraper_trigger(event, context):
-    """
-    Cloud Function triggered by GCS finalize event on page JSON uploads.
-    Fetches the uploaded JSON, scrapes details for each URL, and writes a new JSON.
-    """
-    bucket_name = event.get("bucket")
-    file_name = event.get("name")
-    logger.info(f"Triggered by file: gs://{bucket_name}/{file_name}")
-
-    bucket = storage_client.bucket(bucket_name)
-    blob = bucket.blob(file_name)
-    content = blob.download_as_text()
-    page_data = json.loads(content)
-
-    scraper = DMACompanyDetailScraper(page_data)
-
-    loop = asyncio.get_event_loop()
-    data = loop.run_until_complete(scraper.process_miljoeaktoer_for_company_file_path())
-    out_name = os.path.basename(file_name).replace('.json', '_details.json')
-    out_path = f"{OUTPUT_PREFIX}/{out_name}"
-    out_blob = bucket.blob(out_path)
-    out_blob.upload_from_string(json.dumps(data), content_type="application/json")
-    logger.info(f"Uploaded detailed results to gs://{bucket_name}/{out_path}")
 
 
