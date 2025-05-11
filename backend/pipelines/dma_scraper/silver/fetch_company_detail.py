@@ -55,6 +55,23 @@ class DMACompanyDetailScraper:
             logger.error(f"Error scraping {url}: {str(e)}")
             logger.error(traceback.format_exc())
             return {}
+        
+    async def scrape_table_url(self, session, url):
+        try:
+            html = await fetch(session, url)
+            soup = BeautifulSoup(html, 'html.parser')
+            cvr_selector = "div:nth-child(2) > div.card-body > dl > dd:nth-child(4)"
+            cvr = soup.select_one(cvr_selector).text.strip()
+            pdf_url_selector = "#hent-0"
+            if(soup.select_one(pdf_url_selector)!= None):
+                pdf_url = 'https://dma.mst.dk' + soup.select_one(pdf_url_selector).get('href')
+            else:
+                pdf_url = None
+            return {"pdf_url":pdf_url, "cvr":cvr}
+        except Exception as e:
+            logger.error(f"Error scraping PDF URL from {url}: {str(e)}")
+            logger.error(traceback.format_exc())
+            return None
 
     async def scrape_table(self, session, url, table_id):
         try:
@@ -77,7 +94,10 @@ class DMACompanyDetailScraper:
                         if col.find('a'):
                             row_data[f"{headers[i]}_url"] = 'https://dma.mst.dk' + col.find('a')['href']
                     rows.append(row_data)
-        
+                    
+            for row in rows:
+                row.update(await self.scrape_table_url(session, row['_url']))
+                
             return rows
         except Exception as e:
             logger.error(f"Error scraping table from {url}: {str(e)}")
