@@ -2,6 +2,7 @@ from bronze.fetch_company_data import DMAScraper
 import os
 from google.cloud import storage
 from  datetime import datetime
+import argparse
 # inside backend/pipelines/dma_scraper/fetch_company_data.py
 import os, sys
 import time
@@ -13,7 +14,7 @@ ROOT = os.path.abspath(os.path.join(__file__, "..", "..", ".."))
 sys.path.insert(0, ROOT)
 
 from common.storage_interface import LocalStorage, GCSStorage
-from silver.fetch_company_detail import DMACompanyDetailScraper
+from bronze.fetch_company_detail import DMACompanyDetailScraper
 PREFIX_BRONZE_SAVE_PATH = os.environ.get("BRONZE_OUTPUT_DIR", "bronze/dma")
 PREFIX_SILVER_SAVE_PATH = os.environ.get("SILVER_OUTPUT_DIR", "silver/dma")
 nest_asyncio.apply()
@@ -38,10 +39,21 @@ def save_parquet(data, timestamp, PATH):
     blob_name = f"{timestamp_dir}/data.parquet"
     storage_backend.save_parquet(data, blob_name)
     print(f"Saved {blob_name} to storage")
-    
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="DMA Scraper Pipeline")
+    parser.add_argument(
+        "--total-pages",
+        type=int,
+        default=None,
+        help="Total number of pages to scrape",
+    )
+    return parser.parse_args()
+
 def main():
+    args = parse_args()
     page = 1
-    total_pages = None
+    total_pages = args.total_pages
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     all_page_results = []
     while total_pages is None or page <= total_pages:
@@ -56,14 +68,16 @@ def main():
         time.sleep(1)  # Add a delay to avoid overwhelming the server
         all_page_results.extend(page_results)
         page += 1
-    save_data(all_page_results, timestamp, PREFIX_BRONZE_SAVE_PATH)
-
-        
-    detail_scraper = DMACompanyDetailScraper(page_results)
-
+    detail_scraper = DMACompanyDetailScraper(all_page_results)
     loop = asyncio.get_event_loop()
-    data = loop.run_until_complete(detail_scraper.process_miljoeaktoer_for_company_file_path())
-    save_parquet(data, timestamp, PREFIX_SILVER_SAVE_PATH)
+    detailed_data = loop.run_until_complete(detail_scraper.process_miljoeaktoer_for_company_file_path())
+    # Merge base and detail dicts by 'miljoeaktoerUrl'
+    detail_lookup = {item.get('miljoeaktoerUrl'): item for item in detailed_data if item}
+    merged_results = []
+    for base in all_page_results:
+        url = base.get('miljoeaktoerUrl')
+        merged_results.append({**base, **detail_lookup.get(url, {})})
+    save_data(merged_results, timestamp, PREFIX_BRONZE_SAVE_PATH)
     
 
 
