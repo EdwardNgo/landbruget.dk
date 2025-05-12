@@ -9,6 +9,7 @@ import time
 import nest_asyncio
 import asyncio
 import aiohttp
+from silver.transformation import transform_dma_json
 
 ROOT = os.path.abspath(os.path.join(__file__, "..", "..", ".."))
 sys.path.insert(0, ROOT)
@@ -48,13 +49,26 @@ def parse_args():
         default=None,
         help="Total number of pages to scrape",
     )
+    parser.add_argument(
+        "--silver",
+        action='store_true',
+        help="Run silver transformation stage",
+    )
+    parser.add_argument(
+        "--timestamp",
+        type=str,
+        help="Timestamp directory for silver stage",
+    )
     return parser.parse_args()
 
-def main():
+def silver(data, timestamp: str):
+    df = transform_dma_json(data)
+    save_parquet(df, timestamp, PREFIX_SILVER_SAVE_PATH)
+
+def bronze(timestamp: str):
     args = parse_args()
     page = 1
     total_pages = args.total_pages
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     all_page_results = []
     while total_pages is None or page <= total_pages:
         print(f"Fetching page {page}...")
@@ -78,9 +92,17 @@ def main():
         url = base.get('miljoeaktoerUrl')
         merged_results.append({**base, **detail_lookup.get(url, {})})
     save_data(merged_results, timestamp, PREFIX_BRONZE_SAVE_PATH)
-    
-
-
+    return merged_results
 
 if __name__ == "__main__":
-    main()
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    args = parse_args()
+    if args.silver:
+        if not args.timestamp:
+            print("Error: --timestamp is required for silver stage")
+            sys.exit(1)
+        data = storage_backend.read_json(os.path.join(PREFIX_BRONZE_SAVE_PATH, args.timestamp, 'data.json'))
+        silver(data, args.timestamp)
+    else:
+        data = bronze(timestamp)
+        silver(data, timestamp)

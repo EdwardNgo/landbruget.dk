@@ -12,6 +12,11 @@ class StorageInterface:
     def save_parquet(self, data, dst_path):
         """Save data as a Parquet file."""
         raise NotImplementedError("save_parquet must be implemented by subclasses")
+    
+    def read_json(self, src_path):
+        """Load JSON data from the storage backend."""
+        raise NotImplementedError("read_json must be implemented by subclasses")
+    
 
 class LocalStorage(StorageInterface):
     """Save JSON files to the local filesystem."""
@@ -31,6 +36,11 @@ class LocalStorage(StorageInterface):
         df = data if isinstance(data, pd.DataFrame) else pd.DataFrame(data)
         df.to_parquet(full_path, index=False)
 
+    def read_json(self, src_path):
+        full_path = os.path.join(self.base_dir, src_path)
+        with open(full_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+
 class GCSStorage(StorageInterface):
     """Save JSON files to a Google Cloud Storage bucket."""
     def __init__(self, bucket_name):
@@ -49,3 +59,8 @@ class GCSStorage(StorageInterface):
         buffer.seek(0)
         blob = self.bucket.blob(dst_path)
         blob.upload_from_string(buffer.getvalue(), content_type="application/octet-stream")
+
+    def read_json(self, src_path):
+        blob = self.bucket.blob(src_path)
+        content = blob.download_as_string()
+        return json.loads(content)
