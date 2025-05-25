@@ -29,7 +29,6 @@ class SpfSuBronzeConfig(BaseJobConfig):
     bucket: str = os.getenv("GCS_BUCKET")
     
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
-    save_local: bool = True
     max_concurrent: int = os.getenv("MAX_CONCURRENT", 20)
     
 
@@ -82,7 +81,7 @@ class SpfSuBronze(BaseSource[SpfSuBronzeConfig]):
         return await response.json()
     
     async def _fetch_raw_data(self):
-        herd_numbers = list(set(self.fetch_silver_data_chr()))[0:500]
+        herd_numbers = list(set(self.fetch_silver_data_chr()))
         self.log.info(f"Fetching SPF SU for {len(herd_numbers)} herd numbers")
         sem = asyncio.Semaphore(self.config.max_concurrent)
         async with aiohttp.ClientSession() as session:
