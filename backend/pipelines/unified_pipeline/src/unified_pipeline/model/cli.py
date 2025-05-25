@@ -38,6 +38,7 @@ class Source(Enum):
     bnbo = "bnbo"
     agricultural_fields = "agricultural_fields"
     cadastral = "cadastral"
+    spf_su = "spf_su"
 
 
 class Stage(Enum):
