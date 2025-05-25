@@ -24,6 +24,9 @@ from unified_pipeline.bronze.agricultural_fields import AgriculturalFieldsBronze
 from unified_pipeline.silver.agricultural_fields import AgriculturalFieldsSilver, AgriculturalFieldsSilverConfig
 from unified_pipeline.bronze.cadastral import CadastralBronze, CadastralBronzeConfig
 from unified_pipeline.silver.cadastral import CadastralSilver, CadastralSilverConfig
+from unified_pipeline.bronze.spf_su import SpfSuBronze, SpfSuBronzeConfig
+from unified_pipeline.silver.spf_su import SpfSuSilver, SpfSuSilverConfig
+
 
 
 load_dotenv()
@@ -70,6 +73,14 @@ def execute(cli_config: cli.CliConfig) -> None:
             cli.Stage.all: [
                 (CadastralBronze, CadastralBronzeConfig),
                 (CadastralSilver, CadastralSilverConfig),
+            ],
+        },
+        cli.Source.spf_su: {
+            cli.Stage.bronze: [(SpfSuBronze, SpfSuBronzeConfig)],
+            cli.Stage.silver: [(SpfSuSilver, SpfSuSilverConfig)],
+            cli.Stage.all: [
+                (SpfSuBronze, SpfSuBronzeConfig),
+                (SpfSuSilver, SpfSuSilverConfig),
             ],
         },
     }
