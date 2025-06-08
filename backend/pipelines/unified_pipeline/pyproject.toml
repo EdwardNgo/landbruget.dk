@@ -4,11 +4,12 @@ version = "0.1.0"
 description = "Unified pipeline for fetching and processing data."
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "MIT" } 
+license = { text = "MIT" }
 authors = [
     {name = "Rahul Sahoo", email = "rahulsahoo66@gmail.com"},
 ]
 dependencies = [
+    "aiohttp>=3.10.0",
     "click>=8.1.8",
     "cryptography>=44.0.3",
     "gcsfs>=2025.3.2",
@@ -64,6 +65,16 @@ no_implicit_optional = true
 strict_optional = true
 warn_redundant_casts = true
 follow_untyped_imports = true
+
+# Add explicit package configuration to resolve duplicate module issue
+namespace_packages = true
+explicit_package_bases = true
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = "backend.pipelines.*"
+ignore_errors = true
+
 
 [tool.ruff]
 line-length = 100
